@@ -122,3 +122,11 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Esta ejecución NO es el workflow `operator-build.yml` ni contiene artifacts de Go/RPM o Trivy; no demuestra remediación de CVE.
 - Baseline confirmado Operator: 0 CRITICAL / 32 HIGH; pendiente ejecutar `AWX Operator development image build` en `dev` para obtener go-build-info.txt y rpm-versions.txt.
 - Sin cambios a prd, GHCR ni Kubernetes.
+
+## Evidencia completa build #14 / run 38521754159 — 2026-10-14
+- Workflow `AWX Operator development image build` SUCCESS en dev: build Docker, inventario de bibliotecas Python, `pip check`, `go version -m`, inventario RPM, Trivy y publicación del artefacto de diagnóstico. Artefacto ID 11874003352, informe `trivy-reports/awx-operator-trivy.json`, procedencia `security-evidence/go-build-info.txt`, RPM `security-evidence/rpm-versions.txt`.
+- Informe Trivy JSON leído del artefacto: **0 CRITICAL, 32 HIGH**; 23 Go binario y 9 paquetes RPM, sin HIGH Python.
+- Binario `/usr/local/bin/ansible-operator`: Go **1.26.3**, `golang.org/x/net` **0.54.0**, `golang.org/x/text` **0.38.0**, `google.golang.org/grpc` **1.79.3**.
+- Distribución de hallazgos Go: stdlib 14 HIGH, x/net 5 HIGH, x/text 1 HIGH, grpc 3 HIGH. Trivy indica versiones corregidas máximas pertinentes: Go >=1.26.9 en la línea 1.26 o >=1.27.2; x/net >=0.60.0; x/text >=0.39.0; grpc >=1.83.2 (entre versiones estables indicadas para los tres hallazgos). Esas versiones son objetivos de evaluación, no garantía de compatibilidad ni de resolución exhaustiva de transitorios.
+- RPM: expat 2 HIGH, gnutls 2 HIGH, util-linux libraries (libblkid, libmount, libsmartcols, libuuid) 4 HIGH, python3.12-pip-wheel 1 HIGH. Versiones efectivas: expat `2.5.0-6.el9_8.5`, gnutls `3.8.10-9.el9_8`, cuatro util-linux `2.37.4-25.el9`, pip-wheel `23.2.1-5.el9`. JSON no informa FixedVersion para ninguno; evaluar RHSA y actualizar imagen base cuando haya corrección del proveedor, sin sustituir RPM por contenido no certificado.
+- Decisión técnica: NO subir directamente módulos Go en Dockerfile; están embebidos en ejecutable estático. Investigar fuente exacta del binario `ansible-operator` upstream v1.42.3 y rebuild reproducible con toolchain/módulos compatibles, pruebas Molecule y comparación API/CRD antes de adoptar. Mantener cambios confinados a dev, no promover a prd/GHCR/Kubernetes.
