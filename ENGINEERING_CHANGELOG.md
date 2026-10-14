@@ -197,3 +197,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Causa confirmada en logs de Docker: `golang.org/x/net@v0.60.0 requires golang.org/x/text@v0.42.0`, y `google.golang.org/grpc@v1.83.2 requires golang.org/x/text@v0.41.0`; no es una detección nueva de Trivy.
 - Dockerfile dev cambia `golang.org/x/text@v0.39.0` por `golang.org/x/text@v0.42.0` sin cambiar las demás versiones ni el origen upstream fijado. Pendiente confirmar compilación, Molecule y Trivy del nuevo commit. No declarar remediación sin evidencia.
 - Sin publicaciones de imágenes ni modificaciones en prd, devel o Kubernetes.
+
+## Go remediado y pipeline integral exitoso — 2026-10-14
+- Run #38624540687: SUCCESS (build Trivy/Go/Python/RPM, Molecule replicas, Molecule sin replicas, Nox, no_log). Artefacto `awx-operator-trivy-report` ID 11923032827.
+- Logs verifican binario reconstruido con Go 1.26.9; `golang.org/x/net` 0.60.0; `golang.org/x/text` 0.42.0; `google.golang.org/grpc` 1.83.2. `Python imports OK`.
+- Trivy registra `CRITICAL=0`, `HIGH=9`, desde la base anterior 0/32: reducción neta de 23 HIGH (hallazgos Go). Restan 9 HIGH atribuibles previamente a RPM; debe verificarse el nuevo JSON y las erratas Red Hat antes de declarar remediación total.
+- Run previo #38624512386: fallo build pese a Molecule/Nox/no_log exitosos; run posterior #38624540687 resuelve la validación integral. No se ha publicado imagen ni realizado pruebas reales en clúster destino. Solo dev.
