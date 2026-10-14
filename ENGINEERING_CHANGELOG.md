@@ -41,3 +41,14 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - El análisis de vulnerabilidades usa Trivy 0.75.0 con HIGH y CRITICAL. No bloqueamos por número de CVE antes de establecer una línea base; sí por ausencia de reporte.
 - La ejecución de CI oficial del Operator no equivale al escaneo de nuestra imagen; el resultado de Trivy sigue pendiente de la nueva ejecución de `AWX Operator development image build` en la rama `dev`.
 - Esta fase no publica imágenes ni modifica `prd`, AWX instalado o Kubernetes. Los riesgos de compatibilidad de CRD y de sistema operativo se evaluarán por separado.
+
+## Línea base Trivy Operator — runs de 2026-10-13
+- CI oficial #38509376653: 4 jobs SUCCESS (no-log, Molecule x2 y Nox build).
+- CI oficial #38509359325: 4 jobs SUCCESS (no-log, Molecule x2 y Nox build).
+- Build propio con Trivy #38509359343: SUCCESS, **0 CRITICAL y 41 HIGH**. Artifact `awx-operator-trivy-report` ID 11868838160, JSON descargado y analizado.
+- **Distribución de 41 HIGH:** 9 de paquetes del sistema Red Hat 9.8 (expat 2, gnutls 2, libblkid/libmount/libsmartcols/libuuid y python3.12-pip-wheel); 9 de dependencias Python (pyasn1 3, urllib3 2, virtualenv 3, cryptography 1); **23 del binario Go** `/usr/local/bin/ansible-operator` (Go stdlib, x/net, x/text y gRPC).
+- Dependencias Python detectadas: pyasn1 0.6.3 (fix 0.6.4), urllib3 2.7.0 (fix 2.8.0), virtualenv 21.5.1 (fix mínimo entre 21.7.12 y 21.7.13), cryptography 49.0.0 (fix 50.0.0).
+- En el sistema base expat 2.5.0, gnutls 3.8.10, util-linux 2.37.4 y python3.12-pip-wheel 23.2.1 aparecen HIGH sin FixedVersion informado; requieren comprobar erratas del proveedor, no inventar versiones corregidas.
+- El binario `ansible-operator` proviene de la base `quay.io/operator-framework/ansible-operator:v1.42.3`. Sus hallazgos Go **no se arreglan** simplemente actualizando paquetes Python o `microdnf`; evaluar imagen base reconstruida con toolchain/módulos Go corregidos o una versión mantenida compatible. No sustituir la base a ciegas: verificar CRD, permisos y reconciliación.
+- Próximo trabajo: inventario de versiones instaladas, opciones seguras de actualización de base y prueba de regresión Operator; reescanear y comparar CVE por ID. Los tests actuales no sustituyen integración real en Kubernetes.
+- Sin publicación GHCR, sin promoción a `prd`, sin cambios en Kubernetes.
