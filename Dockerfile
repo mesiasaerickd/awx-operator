@@ -30,6 +30,12 @@ RUN PYTHONPATH=/tmp/bootstrap-pip python3 -m pip install --no-cache-dir \
     python3 -m pip check && \
     rm -rf /tmp/bootstrap-pip
 
+# Remove the redundant distro pip wheel only when RPM dependency checks permit.
+# The actively used pip runtime is installed in /usr/local and validated by CI.
+RUN rpm -e --test python3.12-pip-wheel && \
+    rpm -e python3.12-pip-wheel && \
+    python3 -m pip check
+
 USER 1001
 
 ARG DEFAULT_AWX_VERSION
