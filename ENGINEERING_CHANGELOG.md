@@ -222,3 +222,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Se ensaya retirar solo `python3.12-pip-wheel` de la imagen **despues** de instalar `pip==25.3` bajo `/usr/local`. El Dockerfile exige `rpm -e --test` antes de `rpm -e` y ejecuta `python3 -m pip check` inmediatamente despues; si hay dependencia RPM no satisfecha el build falla y no produce imagen candidata.
 - El workflow comprueba la ausencia del RPM y verifica imports Python. No se cambian bibliotecas del sistema `expat`, `gnutls` o `util-linux` sin errata compatible, ni se excluyen CVE del escaneo Trivy.
 - Es un ensayo en rama dev pendiente de GitHub Actions. Objetivo posible: reducir 1 hallazgo; **no** constituye remediacion probada hasta que build, Molecule y Trivy aprueben. No hay cambios en prd, GHCR ni Kubernetes.
+
+## Resultado del ensayo RPM y reversión segura — 2026-10-14
+- Runs #38647392937 y #38647425168 fallaron al construir la imagen: `rpm -e --test python3.12-pip-wheel` informa `python3.12-pip-wheel >= 23.1.2 is needed by python3.12-libs-3.12.15-1.el9_8.x86_64`. Molecule heredó el fallo de build; Nox y no_log aprobaron.
+- Conclusión: `python3.12-pip-wheel` **no es eliminable** sin romper dependencias del sistema. No se fuerza la desinstalación ni se suprime su CVE.
+- Se revirtió exclusivamente el intento del Dockerfile y el control provisional en el workflow, restableciendo el inventario RPM original; una nueva ejecución del pipeline unificado debe validar la reversión. Continúa el último baseline observado 0 CRITICAL y 9 HIGH hasta nuevo Trivy.
+- Todo limitado a dev; prd, GHCR y Kubernetes sin cambios.
