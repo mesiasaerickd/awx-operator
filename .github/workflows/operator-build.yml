@@ -45,6 +45,17 @@ jobs:
             echo "PIP_AVAILABILITY"
             python3 -m pip --version || true
           '
+      - name: Verify patched Python runtime
+        run: |
+          docker run --rm --entrypoint /bin/sh awx-operator-dev:ci -c '
+            set -eu
+            python3 -m pip check
+            python3 -c "import importlib.metadata as m; assert m.version(\"pyasn1\") == \"0.6.4\""
+            python3 -c "import importlib.metadata as m; assert m.version(\"urllib3\") == \"2.8.0\""
+            python3 -c "import importlib.metadata as m; assert m.version(\"virtualenv\") == \"21.7.13\""
+            python3 -c "import importlib.metadata as m; assert m.version(\"cryptography\") == \"50.0.0\""
+            python3 -c "import ssl, cryptography, urllib3, virtualenv, pyasn1; print(\"Python imports OK\")"
+          '
       - name: Scan built image with Trivy (read-only, no publishing)
         run: |
           mkdir -p trivy-reports
