@@ -57,6 +57,17 @@ jobs:
             python3 -c "import importlib.metadata as m; assert m.version(\"cryptography\") == \"50.0.0\""
             python3 -c "import ssl, cryptography, urllib3, virtualenv, pyasn1; print(\"Python imports OK\")"
           '
+      - name: Capture Go binary provenance and OS package versions
+        run: |
+          mkdir -p security-evidence
+          cid=$(docker create --entrypoint /bin/sh awx-operator-dev:ci)
+          docker cp "$cid:/usr/local/bin/ansible-operator" security-evidence/ansible-operator
+          docker rm "$cid"
+          go version -m security-evidence/ansible-operator | tee security-evidence/go-build-info.txt
+          test -s security-evidence/go-build-info.txt
+          docker run --rm --entrypoint /bin/sh awx-operator-dev:ci -c '
+            rpm -q expat gnutls libblkid libmount libsmartcols libuuid python3.12-pip-wheel
+          ' | tee security-evidence/rpm-versions.txt
       - name: Scan built image with Trivy (read-only, no publishing)
         run: |
           mkdir -p trivy-reports
@@ -98,5 +109,7 @@ jobs:
           path: |
             trivy-reports/awx-operator-trivy.json
             operator-image-id.txt
+            security-evidence/go-build-info.txt
+            security-evidence/rpm-versions.txt
           if-no-files-found: warn
           retention-days: 30
