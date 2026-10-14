@@ -95,3 +95,11 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Corrección en rama `dev`: instalar también `pip==25.3` como distribución real; mantener `python3 -m pip check` en el Dockerfile y comprobar en imagen final `pip==25.3`, dependencias e imports mediante CI. Eliminar únicamente el módulo temporal usado para bootstrap. La imagen final YA NO está libre de pip: decisión explícita para cumplir con pip-api instalado.
 - Candidato sin verificar: nueva compilación y pruebas Molecule, Trivy y verificación de compatibilidad funcional requeridas. No inventar reducción de los 41 HIGH antes de un informe posterior.
 - Seguridad pendiente: revisar exposición/actualizaciones de pip y fijar por digest la imagen de bootstrap python:3.12-slim; cambios solo dev, prd/Kubernetes/GHCR intactos.
+
+## Remediación Python validada — CI 385190* (2026-10-14)
+- Build + Trivy #38519023344 y #38519038144: SUCCESS. `pip check` informa `No broken requirements found`, imports Python correctos. Trivy CRITICAL=0, HIGH=32 en ambas ejecuciones, bajando 9 HIGH frente a baseline 41.
+- Builds incluyen pyasn1==0.6.4, urllib3==2.8.0, virtualenv==21.7.13, cryptography==50.0.0 y pip==25.3 para satisfacer `pip-api`. Cambio de paquetes Python compatible con estos controles, no aún validado en clúster real.
+- CI #38519023337 y #38519062126: SUCCESS los cuatro jobs (Molecule ambos escenarios, Nox build y no_log).
+- CI #38519038143: falla Molecule debido a consulta `https://api.github.com/repos/ansible/awx/releases/latest` con HTTP 403 rate limit exceeded, no por fallo demostrado del runtime. CI #38519062126 vuelve a aprobar.
+- Reportes Trivy en los runs: artefactos 11873740347 y 11873260950. Quedan 32 HIGH; siguiente fase: aislar 23 del binario Go y 9 del OS en JSON actual y evaluar estrategia de reconstrucción/base, con compatibilidad probada antes de cambiar.
+- No se promovió a `prd`, no se publicó GHCR y Kubernetes sigue sin modificaciones.
