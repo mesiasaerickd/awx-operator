@@ -178,3 +178,10 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Molecule replicas, Molecule sin replicas, no_log y Nox build: SUCCESS (4/4).
 - Sin reporte Trivy ni artefactos de seguridad. Ultima linea base observada: 0 CRITICAL y 32 HIGH (23 Go, 9 RPM).
 - Pendiente remediacion del binario Go, verificacion de parches RPM y validacion integral. Solo dev; sin cambios a prd, GHCR ni Kubernetes.
+
+## CI unificado para dev — 2026-10-14
+- Diagnostico del run funcional #38613422046: Molecule con y sin replicas, Nox build y no_log: SUCCESS (4/4). No publico reportes Trivy ni evidencia de remediacion.
+- `.github/workflows/operator-build.yml` pasa a `AWX Operator unified dev validation` y ejecuta en cada `push` a `dev` (sin filtro de rutas): build de imagen local sin publicar, checks de binario y Python, provenance Go, versiones RPM, Trivy JSON y upload de evidencia, ademas de Molecule (dos escenarios), no_log y Nox.
+- `.github/workflows/ci.yaml` mantiene comprobaciones de PR y pushes fuera de dev, pero excluye dev en pushes para evitar ejecuciones duplicadas.
+- Objetivo: un solo workflow visible para cada commit en dev. Trivy es observacional y NO bloquea por HIGH; por tanto un workflow verde no equivale a remediacion de seguridad. Estado ultimo confirmado: 0 CRITICAL y 32 HIGH (23 Go, 9 RPM).
+- Cambios exclusivamente en dev; no se modifica prd, devel, GHCR ni Kubernetes. Nuevos jobs de validacion unificada quedan pendientes de resultado tras el push.
