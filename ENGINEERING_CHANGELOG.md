@@ -110,3 +110,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - RPM expat, gnutls, libblkid/libmount/libsmartcols/libuuid y python3.12-pip-wheel figuran con alta severidad y sin FixedVersion en el JSON; no asumir que `microdnf update` los puede corregir sin erratas nuevas del proveedor.
 - Añadido workflow en `dev` para extraer `go version -m` del ejecutable y `rpm -q` de paquetes afectados, archivando ambos en `awx-operator-trivy-report`; esto permite evaluar actualización del binario y cobertura del OS con evidencia de builds reproducibles. Candidato de workflow sin nueva validación todavía.
 - Siguiente paso: revisar salida de procedencia, comparar versión de ansible-operator/imagen base mantenida o planificar reconstrucción de binario con Go y módulos corregidos, asegurando pruebas Molecule, reconciliación y permisos Kubernetes. Solo dev; prd/GHCR/Kubernetes sin cambios.
+
+## CI funcional 38521565282, 38521754183, 38521796263 — 2026-10-14
+- Cada ejecución completó con éxito los cuatro jobs oficiales: Molecule ambos escenarios, Nox build y no_log (12 jobs exitosos en total).
+- Son pruebas funcionales; ninguna generó artefacto de seguridad ni corresponde al workflow `operator-build.yml`. No se ha verificado todavía el nuevo paso de procedencia Go/RPM del commit a30ecdd6.
+- Línea base de seguridad confirmada: Trivy Operator 0 CRITICAL, 32 HIGH (#38519023344 / #38519038144). Falta ejecutar/verificar el workflow de imagen en `dev` para obtener `go-build-info.txt` y `rpm-versions.txt`.
+- `prd`, GHCR y Kubernetes siguen intactos.
