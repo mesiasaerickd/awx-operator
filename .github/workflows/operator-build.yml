@@ -1,0 +1,23 @@
+name: AWX Operator development image build
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/operator-build.yml'
+      - 'Dockerfile'
+      - 'requirements.yml'
+      - 'roles/**'
+      - 'playbooks/**'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build operator image without publishing
+        run: docker build --file Dockerfile --build-arg DEFAULT_AWX_VERSION=24.6.1 --build-arg OPERATOR_VERSION=development --tag awx-operator-dev:ci .
+      - name: Record build image ID
+        run: docker image inspect awx-operator-dev:ci --format '{{.Id}}'
