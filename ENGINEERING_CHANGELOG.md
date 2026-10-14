@@ -173,3 +173,8 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Exitosos los cuatro jobs: Molecule replicas, Molecule sin replicas, Nox build y no_log.
 - No hubo artefactos Trivy. Se mantiene la ultima referencia de 0 CRITICAL y 32 HIGH (23 Go, 9 RPM).
 - Sigue pendiente remediacion del binario Go, comprobacion de erratas RPM y nueva validacion de seguridad. Solo rama dev.
+
+## CI funcional #38608936168 — 2026-10-14
+- Molecule replicas, Molecule sin replicas, no_log y Nox build: SUCCESS (4/4).
+- Sin reporte Trivy ni artefactos de seguridad. Ultima linea base observada: 0 CRITICAL y 32 HIGH (23 Go, 9 RPM).
+- Pendiente remediacion del binario Go, verificacion de parches RPM y validacion integral. Solo dev; sin cambios a prd, GHCR ni Kubernetes.
