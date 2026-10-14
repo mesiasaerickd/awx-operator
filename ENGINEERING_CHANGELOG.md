@@ -116,3 +116,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Son pruebas funcionales; ninguna generó artefacto de seguridad ni corresponde al workflow `operator-build.yml`. No se ha verificado todavía el nuevo paso de procedencia Go/RPM del commit a30ecdd6.
 - Línea base de seguridad confirmada: Trivy Operator 0 CRITICAL, 32 HIGH (#38519023344 / #38519038144). Falta ejecutar/verificar el workflow de imagen en `dev` para obtener `go-build-info.txt` y `rpm-versions.txt`.
 - `prd`, GHCR y Kubernetes siguen intactos.
+
+## CI funcional #38524804074 — 2026-10-14
+- Molecule sin réplicas, Molecule con réplicas, Nox build y no_log: todos SUCCESS.
+- Esta ejecución NO es el workflow `operator-build.yml` ni contiene artifacts de Go/RPM o Trivy; no demuestra remediación de CVE.
+- Baseline confirmado Operator: 0 CRITICAL / 32 HIGH; pendiente ejecutar `AWX Operator development image build` en `dev` para obtener go-build-info.txt y rpm-versions.txt.
+- Sin cambios a prd, GHCR ni Kubernetes.
