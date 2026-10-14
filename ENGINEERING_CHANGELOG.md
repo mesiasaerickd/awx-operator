@@ -26,3 +26,5 @@ Se verificó `Dockerfile`: parte de `quay.io/operator-framework/ansible-operator
 - Establecer runners y condiciones de publicación de imágenes.
 - Verificar tests, compatibilidad AWX/Operator/EE y recuperación de PostgreSQL.
 - Decidir controles y riesgos aceptables antes de solicitar despliegue en producción.
+
+- 2026-10-13: se agregó el workflow de GitHub Actions para compilación de imagen en `dev`, sin despliegue ni publicación al registro. Estado: ejecución y validación pendientes; fallo de build no autoriza cambios automáticos a `prd`.
