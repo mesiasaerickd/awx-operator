@@ -185,3 +185,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - `.github/workflows/ci.yaml` mantiene comprobaciones de PR y pushes fuera de dev, pero excluye dev en pushes para evitar ejecuciones duplicadas.
 - Objetivo: un solo workflow visible para cada commit en dev. Trivy es observacional y NO bloquea por HIGH; por tanto un workflow verde no equivale a remediacion de seguridad. Estado ultimo confirmado: 0 CRITICAL y 32 HIGH (23 Go, 9 RPM).
 - Cambios exclusivamente en dev; no se modifica prd, devel, GHCR ni Kubernetes. Nuevos jobs de validacion unificada quedan pendientes de resultado tras el push.
+
+## Candidato de remediación Go en dev — 2026-10-14
+- Se identificó el origen del binario: `operator-framework/ansible-operator-plugins` release `v1.42.3`, commit exacto `292a56a4877c8093037c0533f3ef3c7a6bbd78e2` (tag anotado validado por GitHub).
+- Dockerfile en dev incorpora una etapa `golang:1.26.9` que obtiene el origen y compila `./cmd/ansible-operator` con `CGO_ENABLED=0`. Se solicita la actualización de `golang.org/x/net@v0.60.0`, `golang.org/x/text@v0.39.0`, `google.golang.org/grpc@v1.83.2` y se recalculan dependencias mediante `go mod tidy`.
+- El binario compilado sustituye en la imagen candidata al binario Go embebido en la imagen base; se conservan los componentes de runtime y las verificaciones Python. La corrección necesita validar compatibilidad y el reporte Trivy; **no se afirma remediación hasta obtener resultado**.
+- Sólo rama dev y Docker build local del CI, sin publicar imagen. No hay cambios en prd, devel, GHCR o clúster de Kubernetes.
