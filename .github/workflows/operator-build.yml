@@ -92,6 +92,19 @@ jobs:
                   if severity in counts: counts[severity]+=1
           line=f"Trivy awx-operator: CRITICAL={counts['CRITICAL']}, HIGH={counts['HIGH']}"
           print(line)
+          rpm=[]
+          for result in data.get('Results',[]):
+              if result.get('Type') == 'redhat':
+                  for v in result.get('Vulnerabilities') or []:
+                      if v.get('Severity') in counts:
+                          rpm.append((v.get('VulnerabilityID'),v.get('PkgName'),v.get('InstalledVersion'),v.get('FixedVersion') or 'NO_VENDOR_FIX'))
+          with open('trivy-reports/rpm-open-findings.tsv','w') as out:
+              out.write('CVE\\tPACKAGE\\tINSTALLED\\tFIXED_VERSION\\n')
+              for row in rpm:
+                  out.write('\\t'.join(str(x) for x in row)+'\\n')
+          print(f'RPM findings: {len(rpm)}; without fix: {sum(x[3]=="NO_VENDOR_FIX" for x in rpm)}')
+          if counts['CRITICAL'] or counts['HIGH'] > 9:
+              raise SystemExit('Security regression: CRITICAL found or HIGH exceeded reviewed baseline of nine')
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
               summary.write(line+'\\n')
           PY
@@ -102,6 +115,7 @@ jobs:
           name: awx-operator-trivy-report
           path: |
             trivy-reports/awx-operator-trivy.json
+            trivy-reports/rpm-open-findings.tsv
             operator-image-id.txt
             security-evidence/go-build-info.txt
             security-evidence/rpm-versions.txt
