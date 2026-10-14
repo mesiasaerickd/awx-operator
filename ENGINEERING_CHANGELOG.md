@@ -80,3 +80,11 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - CANDIDATO sin validar aplicado a Dockerfile **solo dev**: pyasn1 0.6.4, urllib3 2.8.0, virtualenv 21.7.13 y cryptography 50.0.0 usando `python3 -m pip install` seguido por `pip check`.
 - Añadido gate CI para versiones exactas, `pip check` e importación de librerías. Si falla compatibilidad, resolver cuidadosamente; no forzar con `--no-deps`. No se presume reducción de hallazgos hasta reescaneo.
 - Pendientes: validar build+Trivy con nuevo Dockerfile, ejecutar CI funcional, atender 23 HIGH de Go y 9 HIGH OS, probar reconciliación en Kubernetes aislado. Sin cambios a prd ni despliegues.
+
+## RCA cinco ejecuciones y corrección de bootstrap pip — 2026-10-14
+- Runs #38517382621 y #38517402256: Docker build FAILED en instalación de cuatro parches Python, ERROR inequívoco `/usr/local/bin/python3: No module named pip`. No llegó a resolver ni instalar librerías, tampoco ejecutó Trivy.
+- Runs #38517382693, #38517402324 y #38517428566: jobs Molecule fallaron al construir `testing-operator` por el mismo paso Docker, no por regresión demostrada de lógica Kubernetes; jobs Nox y no_log pasaron.
+- Fallo de diseño anterior: se asumió que la base operator-framework ansible-operator v1.42.3 tenía pip instalado, pese a que nuestro inventario ya mostraba lo contrario. Se corrige sin `curl | sh` ni desactivar dependencias.
+- Nuevo candidato en `dev`: copiar exclusivamente el módulo pip (puro Python) desde `python:3.12-slim` a una ruta temporal en build; ejecutarlo con el intérprete Python 3.12 del Operator mediante `PYTHONPATH`, instalar pyasn1 0.6.4, urllib3 2.8.0, virtualenv 21.7.13 y cryptography 50.0.0; ejecutar pip check y retirar pip temporal. La imagen final permanece sin pip como en upstream. CI confirma versión/imports y Trivy, sin invocar pip en runtime.
+- Nota de cadena de suministro: la referencia `python:3.12-slim` deberá fijarse por digest y comprobarse antes de promover imagen. Riesgo de compatibilidad entre bibliotecas pendiente. No se afirma éxito hasta un nuevo build.
+- Baseline último verificado: Operator 0 CRITICAL/41 HIGH. No se tocaron prd, GHCR ni Kubernetes.
