@@ -191,3 +191,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Dockerfile en dev incorpora una etapa `golang:1.26.9` que obtiene el origen y compila `./cmd/ansible-operator` con `CGO_ENABLED=0`. Se solicita la actualización de `golang.org/x/net@v0.60.0`, `golang.org/x/text@v0.39.0`, `google.golang.org/grpc@v1.83.2` y se recalculan dependencias mediante `go mod tidy`.
 - El binario compilado sustituye en la imagen candidata al binario Go embebido en la imagen base; se conservan los componentes de runtime y las verificaciones Python. La corrección necesita validar compatibilidad y el reporte Trivy; **no se afirma remediación hasta obtener resultado**.
 - Sólo rama dev y Docker build local del CI, sin publicar imagen. No hay cambios en prd, devel, GHCR o clúster de Kubernetes.
+
+## Corrección de incompatibilidad de módulos Go — 2026-10-14
+- Runs unificados #38622824948 y #38622868045: FAILED en compilación de imagen y Molecule, mientras Nox y no_log finalizaron SUCCESS.
+- Causa confirmada en logs de Docker: `golang.org/x/net@v0.60.0 requires golang.org/x/text@v0.42.0`, y `google.golang.org/grpc@v1.83.2 requires golang.org/x/text@v0.41.0`; no es una detección nueva de Trivy.
+- Dockerfile dev cambia `golang.org/x/text@v0.39.0` por `golang.org/x/text@v0.42.0` sin cambiar las demás versiones ni el origen upstream fijado. Pendiente confirmar compilación, Molecule y Trivy del nuevo commit. No declarar remediación sin evidencia.
+- Sin publicaciones de imágenes ni modificaciones en prd, devel o Kubernetes.
