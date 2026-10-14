@@ -19,8 +19,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build operator image without publishing
         run: docker build --file Dockerfile --build-arg DEFAULT_AWX_VERSION=24.6.1 --build-arg OPERATOR_VERSION=development --tag awx-operator-dev:ci .
-      - name: Record build image ID
-        run: docker image inspect awx-operator-dev:ci --format '{{.Id}}'
+      - name: Record immutable local image ID
+        run: |
+          docker image inspect awx-operator-dev:ci --format '{{.Id}}' | tee operator-image-id.txt
+      - name: Check operator binary presence
+        run: |
+          docker run --rm --entrypoint /bin/sh awx-operator-dev:ci -c 'test -x /usr/local/bin/ansible-operator && test -f "$HOME/watches.yaml"'
+
 
       - name: Scan built image with Trivy (read-only, no publishing)
         run: |
@@ -35,14 +40,16 @@ jobs:
             --format json \
             --output /reports/awx-operator-trivy.json \
             awx-operator-dev:ci
-      - name: Summarize findings
-        if: always()
+      - name: Summarize findings and validate report
+        if: success()
         run: |
-          if [ -f trivy-reports/awx-operator-trivy.json ]; then
-            python3 - <<'PY'
+          test -s trivy-reports/awx-operator-trivy.json
+          python3 - <<'PY'
           import json, os
           with open('trivy-reports/awx-operator-trivy.json') as f:
               data=json.load(f)
+          if 'Results' not in data or 'SchemaVersion' not in data:
+              raise SystemExit('Trivy report invalid or incomplete')
           counts={'CRITICAL':0,'HIGH':0}
           for result in data.get('Results',[]):
               for vuln in result.get('Vulnerabilities') or []:
@@ -53,12 +60,13 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
               summary.write(line+'\\n')
           PY
-          fi
       - name: Save vulnerability evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: awx-operator-trivy-report
-          path: trivy-reports/awx-operator-trivy.json
+          path: |
+            trivy-reports/awx-operator-trivy.json
+            operator-image-id.txt
           if-no-files-found: warn
           retention-days: 30
