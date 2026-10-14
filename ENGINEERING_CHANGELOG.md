@@ -58,3 +58,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Esta ejecucion no incluyo el workflow de imagen `operator-build.yml` ni produjo artefacto de Trivy. No permite afirmar una reduccion de CVE.
 - Ultima linea base de seguridad comprobada: run 38509359343, Trivy CRITICAL=0, HIGH=41 (9 OS, 9 Python, 23 Go binario).
 - Proximo trabajo: corregir la imagen en `dev` y ejecutar el workflow de build + Trivy antes de actualizar el conteo de vulnerabilidades. Sin cambios a prd ni Kubernetes.
+
+## Diagnóstico de remediación Python — 2026-10-14
+- Se añadió un paso al workflow `operator-build.yml` que inspecciona el intérprete Python, las rutas de instalación, disponibilidad de pip y versiones efectivas de pyasn1, urllib3, virtualenv y cryptography dentro de la imagen generada.
+- Objetivo: determinar si los paquetes vulnerables pertenecen al runtime/base o a una instalación gestionada, antes de modificar versiones que podrían romper el Operator; el paso falla si no se pueden localizar mediante `importlib.metadata` y expone el bloqueo real.
+- No se han modificado dependencias ni imagen base aún. Línea base Trivy sigue en 0 CRITICAL / 41 HIGH. Tras conocer las rutas, aplicar cambios mínimos y volver a pasar Trivy y Molecule.
+- No hay cambios en `prd` ni despliegues Kubernetes.
