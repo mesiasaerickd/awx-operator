@@ -71,3 +71,12 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Corregido en `dev` dividiendo el inventario de rutas Python en comandos cortos. Verificacion estatica del workflow: ninguna linea excede 170 caracteres (maximo actual: 162). Requiere nuevo CI para confirmar.
 - Ninguna de estas ejecuciones corresponde al escaneo Trivy; ultima linea base del Operator: 0 CRITICAL / 41 HIGH. El inventario de Python todavia no tiene resultado de ejecucion confirmado.
 - Sin cambios en `prd`, GHCR ni Kubernetes.
+
+## CI siete ejecuciones e inicio de remediación Python — 2026-10-14
+- #38514951973 y #38514962858: CI Molecule falló por longitud de línea (177 y 180 caracteres respectivamente) en el workflow de inventario durante versiones intermedias; `no-log` y Nox pasaron. Corregido posteriormente en `dev`.
+- #38514994480 y #38514978509: CI oficial APPROVED (Molecule ambos escenarios, Nox y no_log).
+- #38514952052, #38514962861 y #38514978705: Docker build, inventario Python y Trivy SUCCESS; resultado consistente: **0 CRITICAL / 41 HIGH**.
+- Inventario confirmado en imagen: pyasn1 0.6.3, urllib3 2.7.0, virtualenv 21.5.1 en `/usr/local/lib/python3.12/site-packages`; cryptography 49.0.0 en `/usr/local/lib64/python3.12/site-packages`.
+- CANDIDATO sin validar aplicado a Dockerfile **solo dev**: pyasn1 0.6.4, urllib3 2.8.0, virtualenv 21.7.13 y cryptography 50.0.0 usando `python3 -m pip install` seguido por `pip check`.
+- Añadido gate CI para versiones exactas, `pip check` e importación de librerías. Si falla compatibilidad, resolver cuidadosamente; no forzar con `--no-deps`. No se presume reducción de hallazgos hasta reescaneo.
+- Pendientes: validar build+Trivy con nuevo Dockerfile, ejecutar CI funcional, atender 23 HIGH de Go y 9 HIGH OS, probar reconciliación en Kubernetes aislado. Sin cambios a prd ni despliegues.
