@@ -4,6 +4,15 @@ USER root
 RUN microdnf update -y && \
     microdnf install -y openssl
 
+# Development security candidate: update installed Python distributions in place.
+# Do not ignore dependency conflicts; CI verifies resolver consistency.
+RUN python3 -m pip install --no-cache-dir \
+    'pyasn1==0.6.4' \
+    'urllib3==2.8.0' \
+    'virtualenv==21.7.13' \
+    'cryptography==50.0.0' && \
+    python3 -m pip check
+
 USER 1001
 
 ARG DEFAULT_AWX_VERSION
