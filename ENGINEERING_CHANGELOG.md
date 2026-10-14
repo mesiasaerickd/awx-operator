@@ -143,3 +143,8 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Cambio de eliminación del lookup remoto a GitHub validado a nivel de CI de ambos escenarios. Estas ejecuciones no incluyen Trivy.
 - Baseline de seguridad del Operator sin cambios demostrados: 0 CRITICAL / 32 HIGH (23 Go y 9 RPM). Falta reconstrucción y verificación del binario, evaluación de avisos RPM y validación de despliegue/rollback en clúster de pruebas antes de promover.
 - Solo rama dev; prd, GHCR y Kubernetes sin modificaciones.
+
+## CI funcional #38535609849 — 2026-10-14
+- Molecule replicas SUCCESS, Molecule sin replicas SUCCESS, Nox build SUCCESS y no_log SUCCESS (4/4).
+- Ejecucion sin Trivy ni artefactos Go/RPM: no constituye evidencia de reduccion de las 32 HIGH pendientes.
+- Sigue pendiente reconstruccion/actualizacion segura del binario Go (23 HIGH), revision de RPM (9 HIGH) y validacion de despliegue. Solo dev; no se tocan prd, GHCR ni Kubernetes.
