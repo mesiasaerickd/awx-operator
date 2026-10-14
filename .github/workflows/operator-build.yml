@@ -37,7 +37,8 @@ jobs:
             echo "PYTHON_RUNTIME"
             python3 -c "import sys, sysconfig; print(sys.executable); print(sys.version); print(sysconfig.get_paths())"
             echo "DEPENDENCY_METADATA"
-            python3 -c "import importlib.metadata as m; names=(\"pyasn1\",\"urllib3\",\"virtualenv\",\"cryptography\"); [(print(n, m.version(n), m.distribution(n).locate_file(\"\"))) for n in names]"
+            python3 -c "import importlib.metadata as m; names=(\"pyasn1\",\"urllib3\",\"virtualenv\",\"cryptography\"); print([(n, m.version(n)) for n in names])"
+            python3 -c "import importlib.metadata as m; print([(n, str(m.distribution(n).locate_file(\"\"))) for n in (\"pyasn1\",\"urllib3\",\"virtualenv\",\"cryptography\")])"
             echo "PIP_AVAILABILITY"
             python3 -m pip --version || true
           '
