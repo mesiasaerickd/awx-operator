@@ -1,6 +1,17 @@
+# Rebuild the upstream ansible-operator binary from the exact v1.42.3 source commit.
+# Only development builds use this candidate; the runtime image stays unchanged.
+FROM golang:1.26.9 AS patched-ansible-operator
+RUN git clone https://github.com/operator-framework/ansible-operator-plugins.git /src
+WORKDIR /src
+RUN git checkout --detach 292a56a4877c8093037c0533f3ef3c7a6bbd78e2 && \
+    go get golang.org/x/net@v0.60.0 golang.org/x/text@v0.39.0 google.golang.org/grpc@v1.83.2 && \
+    go mod tidy && \
+    CGO_ENABLED=0 go build -trimpath -o /out/ansible-operator ./cmd/ansible-operator
+
 FROM quay.io/operator-framework/ansible-operator:v1.42.3
 
 USER root
+COPY --from=patched-ansible-operator /out/ansible-operator /usr/local/bin/ansible-operator
 RUN microdnf update -y && \
     microdnf install -y openssl
 
