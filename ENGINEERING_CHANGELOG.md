@@ -88,3 +88,10 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Nuevo candidato en `dev`: copiar exclusivamente el módulo pip (puro Python) desde `python:3.12-slim` a una ruta temporal en build; ejecutarlo con el intérprete Python 3.12 del Operator mediante `PYTHONPATH`, instalar pyasn1 0.6.4, urllib3 2.8.0, virtualenv 21.7.13 y cryptography 50.0.0; ejecutar pip check y retirar pip temporal. La imagen final permanece sin pip como en upstream. CI confirma versión/imports y Trivy, sin invocar pip en runtime.
 - Nota de cadena de suministro: la referencia `python:3.12-slim` deberá fijarse por digest y comprobarse antes de promover imagen. Riesgo de compatibilidad entre bibliotecas pendiente. No se afirma éxito hasta un nuevo build.
 - Baseline último verificado: Operator 0 CRITICAL/41 HIGH. No se tocaron prd, GHCR ni Kubernetes.
+
+## RCA cinco runs 385180* — conflicto pip-api tras instalación Python — 2026-10-14
+- Build FAILED: #38518045823 y #38518063551. Molecule FAILED/cancelado: #38518046433, #38518063606, #38518091786; `no-log` y Nox SUCCESS en ejecuciones oficiales.
+- Logs de build: el bootstrap temporal de pip SI instaló correctamente pyasn1 0.6.4, urllib3 2.8.0, virtualenv 21.7.13 y cryptography 50.0.0; el fallo posterior de `pip check` es `pip-api 0.0.34 requires pip, which is not installed`. No fue fallo de descarga ni de resolución de las cuatro versiones.
+- Corrección en rama `dev`: instalar también `pip==25.3` como distribución real; mantener `python3 -m pip check` en el Dockerfile y comprobar en imagen final `pip==25.3`, dependencias e imports mediante CI. Eliminar únicamente el módulo temporal usado para bootstrap. La imagen final YA NO está libre de pip: decisión explícita para cumplir con pip-api instalado.
+- Candidato sin verificar: nueva compilación y pruebas Molecule, Trivy y verificación de compatibilidad funcional requeridas. No inventar reducción de los 41 HIGH antes de un informe posterior.
+- Seguridad pendiente: revisar exposición/actualizaciones de pip y fijar por digest la imagen de bootstrap python:3.12-slim; cambios solo dev, prd/Kubernetes/GHCR intactos.
