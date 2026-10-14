@@ -137,3 +137,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Se localizó el lookup en `molecule/kind/molecule.yml` y `molecule/default/molecule.yml`, bajo `default_awx_version`.
 - Se eliminó la consulta externa de ambos escenarios. Ahora `default_awx_version: ${AWX_DEFAULT_VERSION:-24.6.1}`, con valor determinista alineado al argumento de build Docker en nuestro CI y configurable por ambiente para probar otra versión. `awx_version` y las pruebas siguen intactas.
 - Cambio solo en dev, **pendiente de validar** con nuevos runs Molecule. Última referencia de seguridad: 0 CRITICAL / 32 HIGH. Sin cambios en prd, GHCR ni Kubernetes.
+
+## Validación Molecule posterior al cambio de versión determinista — 2026-10-14
+- CI #38532006562, #38532012712, #38532047205: cada una con 4/4 jobs SUCCESS (Molecule replicas, Molecule sin replicas, Nox y no_log).
+- Cambio de eliminación del lookup remoto a GitHub validado a nivel de CI de ambos escenarios. Estas ejecuciones no incluyen Trivy.
+- Baseline de seguridad del Operator sin cambios demostrados: 0 CRITICAL / 32 HIGH (23 Go y 9 RPM). Falta reconstrucción y verificación del binario, evaluación de avisos RPM y validación de despliegue/rollback en clúster de pruebas antes de promover.
+- Solo rama dev; prd, GHCR y Kubernetes sin modificaciones.
