@@ -52,3 +52,9 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - El binario `ansible-operator` proviene de la base `quay.io/operator-framework/ansible-operator:v1.42.3`. Sus hallazgos Go **no se arreglan** simplemente actualizando paquetes Python o `microdnf`; evaluar imagen base reconstruida con toolchain/módulos Go corregidos o una versión mantenida compatible. No sustituir la base a ciegas: verificar CRD, permisos y reconciliación.
 - Próximo trabajo: inventario de versiones instaladas, opciones seguras de actualización de base y prueba de regresión Operator; reescanear y comparar CVE por ID. Los tests actuales no sustituyen integración real en Kubernetes.
 - Sin publicación GHCR, sin promoción a `prd`, sin cambios en Kubernetes.
+
+## CI funcional 38511867990 — 2026-10-14
+- Los cuatro jobs del workflow oficial fueron SUCCESS: Molecule sin replicas, Molecule replicas, Nox build y validacion no_log.
+- Esta ejecucion no incluyo el workflow de imagen `operator-build.yml` ni produjo artefacto de Trivy. No permite afirmar una reduccion de CVE.
+- Ultima linea base de seguridad comprobada: run 38509359343, Trivy CRITICAL=0, HIGH=41 (9 OS, 9 Python, 23 Go binario).
+- Proximo trabajo: corregir la imagen en `dev` y ejecutar el workflow de build + Trivy antes de actualizar el conteo de vulnerabilidades. Sin cambios a prd ni Kubernetes.
