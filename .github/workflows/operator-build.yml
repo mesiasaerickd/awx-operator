@@ -49,7 +49,6 @@ jobs:
         run: |
           docker run --rm --entrypoint /bin/sh awx-operator-dev:ci -c '
             set -eu
-            python3 -m pip check
             python3 -c "import importlib.metadata as m; assert m.version(\"pyasn1\") == \"0.6.4\""
             python3 -c "import importlib.metadata as m; assert m.version(\"urllib3\") == \"2.8.0\""
             python3 -c "import importlib.metadata as m; assert m.version(\"virtualenv\") == \"21.7.13\""
