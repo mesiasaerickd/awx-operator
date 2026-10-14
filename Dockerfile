@@ -6,12 +6,16 @@ RUN microdnf update -y && \
 
 # Development security candidate: update installed Python distributions in place.
 # Do not ignore dependency conflicts; CI verifies resolver consistency.
-RUN python3 -m pip install --no-cache-dir \
+# Bootstrap pip from a dedicated build stage; keep the runtime image pip-free.
+# pip is pure Python, and the image's Python 3.12 interpreter executes it.
+COPY --from=python:3.12-slim /usr/local/lib/python3.12/site-packages/pip/ /tmp/bootstrap-pip/pip/
+RUN PYTHONPATH=/tmp/bootstrap-pip python3 -m pip install --no-cache-dir \
     'pyasn1==0.6.4' \
     'urllib3==2.8.0' \
     'virtualenv==21.7.13' \
     'cryptography==50.0.0' && \
-    python3 -m pip check
+    PYTHONPATH=/tmp/bootstrap-pip python3 -m pip check && \
+    rm -rf /tmp/bootstrap-pip
 
 USER 1001
 
