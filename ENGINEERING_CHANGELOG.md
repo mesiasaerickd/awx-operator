@@ -64,3 +64,10 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Objetivo: determinar si los paquetes vulnerables pertenecen al runtime/base o a una instalación gestionada, antes de modificar versiones que podrían romper el Operator; el paso falla si no se pueden localizar mediante `importlib.metadata` y expone el bloqueo real.
 - No se han modificado dependencias ni imagen base aún. Línea base Trivy sigue en 0 CRITICAL / 41 HIGH. Tras conocer las rutas, aplicar cambios mínimos y volver a pasar Trivy y Molecule.
 - No hay cambios en `prd` ni despliegues Kubernetes.
+
+## CI Molecule 38514441350 / 38514549974 / 38514565259 — 2026-10-14
+- #38514441350: fallo temporal al instalar colecciones desde Ansible Galaxy (`Connection reset by peer`); otros dos jobs SUCCESS y test de replicas cancelado.
+- #38514549974 y #38514565259: Molecule se detuvo por yamllint `line-length` en `.github/workflows/operator-build.yml:40` (199 caracteres, limite 170), introducido por nuestro inventario Python. Nox y no_log SUCCESS; un job Molecule fallido y el otro cancelado en cada ejecucion.
+- Corregido en `dev` dividiendo el inventario de rutas Python en comandos cortos. Verificacion estatica del workflow: ninguna linea excede 170 caracteres (maximo actual: 162). Requiere nuevo CI para confirmar.
+- Ninguna de estas ejecuciones corresponde al escaneo Trivy; ultima linea base del Operator: 0 CRITICAL / 41 HIGH. El inventario de Python todavia no tiene resultado de ejecucion confirmado.
+- Sin cambios en `prd`, GHCR ni Kubernetes.
