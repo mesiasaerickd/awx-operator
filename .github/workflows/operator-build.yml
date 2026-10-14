@@ -60,7 +60,8 @@ jobs:
           go version -m security-evidence/ansible-operator | tee security-evidence/go-build-info.txt
           test -s security-evidence/go-build-info.txt
           docker run --rm --entrypoint /bin/sh awx-operator-dev:ci -c '
-            rpm -q expat gnutls libblkid libmount libsmartcols libuuid python3.12-pip-wheel
+            rpm -q expat gnutls libblkid libmount libsmartcols libuuid
+            rpm -q python3.12-pip-wheel && exit 1 || test "$?" -eq 1
           ' | tee security-evidence/rpm-versions.txt
       - name: Scan built image with Trivy (read-only, no publishing)
         run: |
