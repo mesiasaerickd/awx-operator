@@ -35,3 +35,9 @@ Se verificó `Dockerfile`: parte de `quay.io/operator-framework/ansible-operator
 Run 38493370913: los cuatro jobs CI oficiales (`no-log`, Molecule dos variantes, Nox build) finalizaron correctamente. Ese run NO contiene el paso de escaneo Trivy del workflow propio de build. Resultado de seguridad de la imagen Operator aún no confirmado.
 
 Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE remanentes, comprobar cobertura OS y validar la integración Kubernetes. La ejecución de Trivy exitosa significa que el escáner pudo correr, no que no existan vulnerabilidades.
+
+## Fase de seguridad de AWX Operator — 2026-10-13
+- El CI propio `operator-build.yml` valida ahora la existencia del ejecutable del Operator y `watches.yaml` en la imagen, recoge el ID local inmutable, exige que exista un JSON válido de Trivy con `SchemaVersion` y `Results`, y adjunta la evidencia durante 30 días.
+- El análisis de vulnerabilidades usa Trivy 0.75.0 con HIGH y CRITICAL. No bloqueamos por número de CVE antes de establecer una línea base; sí por ausencia de reporte.
+- La ejecución de CI oficial del Operator no equivale al escaneo de nuestra imagen; el resultado de Trivy sigue pendiente de la nueva ejecución de `AWX Operator development image build` en la rama `dev`.
+- Esta fase no publica imágenes ni modifica `prd`, AWX instalado o Kubernetes. Los riesgos de compatibilidad de CRD y de sistema operativo se evaluarán por separado.
