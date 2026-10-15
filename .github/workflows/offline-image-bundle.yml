@@ -57,7 +57,7 @@ jobs:
               python3 -m pip install --user ansible-builder
               cd src
               export PATH="$HOME/.local/bin:$PATH"
-              docker build -f Dockerfile.receptor -t awx-ee-receptor-patched:offline .
+              docker build -f Dockerfile.receptor -t awx-ee-receptor-patched:ci .
               ansible-builder build -f execution-environment.yml -t "$IMAGE" \
                 --container-runtime docker
               docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
