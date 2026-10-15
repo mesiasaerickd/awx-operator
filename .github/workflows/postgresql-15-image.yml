@@ -106,6 +106,8 @@ jobs:
           print(json.dumps(manifest,indent=2))
           if counts['CRITICAL']: raise SystemExit('CRITICAL findings: archive blocked')
           if counts['HIGH']: print('WARNING: HIGH findings remain; production blocked pending review')
+          if counts['HIGH'] or not native.get('Results'):
+              raise SystemExit('Security gate BLOCKED: HIGH findings or missing native OS coverage. No TAR exported; lab-only failure evidence uploaded.')
           PY
       - name: Compress Docker image, calculate SHA256
         shell: bash

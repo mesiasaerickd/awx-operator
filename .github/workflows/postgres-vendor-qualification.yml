@@ -1,0 +1,107 @@
+name: AWX PostgreSQL 15 RHEL9 vendor qualification (no publishing)
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - ".github/workflows/postgres-vendor-qualification.yml"
+      - "release/postgres/security_gate.py"
+      - "release/postgres/test_security_gate.py"
+permissions:
+  contents: read
+jobs:
+  security-policy-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Security gate unit tests (always)
+        run: python3 -m unittest discover -s release/postgres -p 'test_security_gate.py' -v
+  vendor-image:
+    needs: security-policy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      RH_REGISTRY_USER: ${{ secrets.REDHAT_REGISTRY_USER }}
+      RH_REGISTRY_TOKEN: ${{ secrets.REDHAT_REGISTRY_TOKEN }}
+      IMAGE: registry.redhat.io/rhel9/postgresql-15:latest
+      EVIDENCE_DIR: release/postgres/vendor-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Require registry entitlement (no insecure fallback)
+        run: |
+          set -euo pipefail
+          test -n "$RH_REGISTRY_USER" && test -n "$RH_REGISTRY_TOKEN" || {
+            echo "::error::Set REDHAT_REGISTRY_USER and REDHAT_REGISTRY_TOKEN repository Actions secrets; vendor qualification BLOCKED."
+            exit 2
+          }
+      - name: Authenticate and pull official RHEL9 PostgreSQL 15 image
+        run: |
+          set -euo pipefail
+          printf '%s' "$RH_REGISTRY_TOKEN" | docker login registry.redhat.io -u "$RH_REGISTRY_USER" --password-stdin
+          docker pull "$IMAGE"
+          mkdir -p "$EVIDENCE_DIR"
+          docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" | tee "$EVIDENCE_DIR/image-pinned-digest.txt"
+          grep -Eq '^registry.redhat.io/rhel9/postgresql-15@sha256:[a-f0-9]{64}$' "$EVIDENCE_DIR/image-pinned-digest.txt"
+      - name: Validate 15.19 binary, SCL UID and startup interface
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
+            set -eu
+            test "$(postgres --version | awk "{print \$3}")" = "15.19"
+            test "$(id -u)" = "26"
+            test -x /usr/bin/run-postgresql
+            test -d /var/lib/pgsql/data
+          '
+      - name: SQL and persistence tests (disposable volume only)
+        run: |
+          set -euo pipefail
+          NAME="rhel9-pg15-ci-$GITHUB_RUN_ID"
+          VOL="rhel9-pg15-ci-$GITHUB_RUN_ID"
+          PASS="ci-disposable-only-$GITHUB_RUN_ID"
+          docker volume create "$VOL"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$VOL" >/dev/null 2>&1 || true' EXIT
+          start_pg() {
+            docker run -d --name "$NAME" -v "$VOL:/var/lib/pgsql/data" \
+              -e POSTGRESQL_USER=awxtest -e POSTGRESQL_PASSWORD="$PASS" \
+              -e POSTGRESQL_DATABASE=awxtest "$IMAGE"
+            for i in $(seq 1 40); do
+              if docker exec "$NAME" pg_isready -h 127.0.0.1 -p 5432 -U awxtest >/dev/null 2>&1; then return 0; fi
+              sleep 2
+            done
+            docker logs "$NAME"
+            return 1
+          }
+          start_pg
+          V=$(docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -Atqc 'SHOW server_version;')
+          test "$V" = "15.19"
+          docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -v ON_ERROR_STOP=1 -c 'CREATE TABLE probe (v int); INSERT INTO probe VALUES (42);'
+          docker rm -f "$NAME"
+          start_pg
+          R=$(docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -Atqc 'SELECT v FROM probe;')
+          test "$R" = "42"
+          echo "PASS: SQL, persistence, PostgreSQL $V, UID and RHEL9 SCL container contract"
+      - name: Trivy native RHEL9 scan
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/$EVIDENCE_DIR:/reports" aquasec/trivy:0.75.0 image \
+            --image-src docker --scanners vuln --severity CRITICAL,HIGH \
+            --format json --output /reports/trivy.json "$IMAGE"
+      - name: Fail closed on HIGH, CRITICAL or missing RHEL9 OS coverage
+        run: |
+          python3 release/postgres/security_gate.py \
+            --report "$EVIDENCE_DIR/trivy.json" \
+            --os-type redhat --output "$EVIDENCE_DIR/qualification.json"
+      - name: Upload JSON evidence only; NEVER redistribute vendor image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-rhel9-vendor-qualification
+          path: release/postgres/vendor-evidence/
+          retention-days: 30
+          if-no-files-found: warn
