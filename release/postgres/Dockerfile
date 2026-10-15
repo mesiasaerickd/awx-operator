@@ -10,8 +10,10 @@ RUN curl -fsSLo /etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-9 \
       https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-9 && \
     printf '[rocky-pg15-lab]\nname=Rocky Linux 9 AppStream (isolated PG15 packages)\nbaseurl=https://dl.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/\nenabled=0\ngpgcheck=1\ngpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-9\nmodule_hotfixes=1\n' \
       > /etc/yum.repos.d/rocky-pg15-lab.repo && \
-    yum -y --refresh --enablerepo=rocky-pg15-lab upgrade \
-      postgresql postgresql-server postgresql-contrib postgresql-upgrade && \
+    yum -y --refresh --enablerepo=rocky-pg15-lab install \
+      'postgresql-15.19*' 'postgresql-server-15.19*' \
+      'postgresql-contrib-15.19*' 'postgresql-upgrade-15.19*' \
+      'postgresql-private-libs-15.19*' && \
     yum clean all && \
     rpm -q postgresql-server postgresql-contrib && \
     test "$(postgres --version | awk '{print $3}')" = "15.19" && \
