@@ -54,6 +54,7 @@ jobs:
           assert cr['spec']['control_plane_ee_image'].endswith(':git-verified-test')
           print('Static staging manifest and AWX CR tests passed')
           PY
+      - name: Check upstream immutable CI run provenance
         run: |
           python3 release/closure/closure.py evidence --baseline release/closure/baseline.json
       - name: Print transparent production blocker status
