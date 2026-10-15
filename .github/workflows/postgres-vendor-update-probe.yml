@@ -30,7 +30,15 @@ jobs:
           cat > Dockerfile.probe <<'EOF'
           FROM registry.redhat.io/rhel9/postgresql-15:latest
           USER 0
-          RUN microdnf update -y && microdnf clean all && test "$(postgres --version | awk '{print $3}')" = "15.19"
+          RUN set -eu; \
+              echo "=== OS and installed package manager ==="; \
+              cat /etc/os-release; \
+              for pm in microdnf dnf yum rpm; do command -v "$pm" || true; done; \
+              if command -v microdnf >/dev/null 2>&1; then microdnf update -y && microdnf clean all; \
+              elif command -v dnf >/dev/null 2>&1; then dnf update -y && dnf clean all; \
+              elif command -v yum >/dev/null 2>&1; then yum update -y && yum clean all; \
+              else echo "BLOCKED: vendor runtime image contains no supported package manager; cannot safely patch by RPM mixing"; exit 44; fi; \
+              test "$(postgres --version | awk '{print $3}')" = "15.19"
           USER 26
           EOF
           docker build --pull --no-cache -f Dockerfile.probe -t "$IMAGE" .
