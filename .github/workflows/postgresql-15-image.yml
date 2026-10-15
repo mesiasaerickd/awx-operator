@@ -1,0 +1,122 @@
+name: AWX PostgreSQL 15.19 offline staging image
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - "release/postgres/**"
+      - ".github/workflows/postgresql-15-image.yml"
+permissions:
+  contents: read
+jobs:
+  postgres-15-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build SCL-compatible PostgreSQL 15.19 (fail closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="15.19-git-$(printf %s "$GITHUB_SHA" | cut -c1-12)"
+          IMAGE="localhost/awx-postgres:$TAG"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build --pull --no-cache -f release/postgres/Dockerfile -t "$IMAGE" release/postgres
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
+            set -eu
+            test "$(id -u)" = "26"
+            test "$(postgres --version | awk "{print \$3}")" = "15.19"
+            test -x /usr/bin/run-postgresql
+            test -d /var/lib/pgsql/data
+            test -n "$CONTAINER_SCRIPTS_PATH"
+          '
+      - name: Validate SQL, UID 26 and data persistence on disposable Docker volume
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="pg15-smoke-$GITHUB_RUN_ID"
+          VOL="pg15-smoke-$GITHUB_RUN_ID"
+          PASS="ci-disposable-not-production"
+          docker volume create "$VOL"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$VOL" >/dev/null 2>&1 || true' EXIT
+          start_db() {
+            docker run -d --name "$NAME" -v "$VOL:/var/lib/pgsql/data" \
+              -e POSTGRESQL_USER=awxtest -e POSTGRESQL_PASSWORD="$PASS" \
+              -e POSTGRESQL_DATABASE=awxtest "$IMAGE"
+            for i in $(seq 1 45); do
+              if docker exec "$NAME" pg_isready -h 127.0.0.1 -p 5432 -U awxtest >/dev/null 2>&1; then return 0; fi
+              sleep 2
+            done
+            docker logs "$NAME"
+            return 1
+          }
+          start_db
+          SERVER_VER=$(docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -Atqc 'SHOW server_version;')
+          test "$SERVER_VER" = "15.19"
+          docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -v ON_ERROR_STOP=1 -c \
+            'CREATE TABLE ci_probe (value integer); INSERT INTO ci_probe VALUES (42);'
+          docker rm -f "$NAME"
+          start_db
+          RESULT=$(docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -Atqc 'SELECT value FROM ci_probe;')
+          test "$RESULT" = "42"
+          echo "PASS: PostgreSQL $SERVER_VER, SCL image contract, query, persistent disposable volume"
+      - name: Trivy complete image scan (no ignored findings)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release/postgres/offline-evidence
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/release/postgres/offline-evidence:/reports" \
+            aquasec/trivy:0.75.0 image --image-src docker --scanners vuln \
+            --severity CRITICAL,HIGH --format json --output /reports/trivy.json "$IMAGE"
+      - name: Report findings and block any CRITICAL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path('release/postgres/offline-evidence')
+          report=json.loads((out/'trivy.json').read_text())
+          if not isinstance(report.get('Results'),list) or not report.get('SchemaVersion'):
+              raise SystemExit('INVALID Trivy report: do not publish image')
+          counts={s:0 for s in ('CRITICAL','HIGH')}
+          for target in report['Results']:
+              for item in target.get('Vulnerabilities') or []:
+                  severity=item.get('Severity')
+                  if severity in counts: counts[severity]+=1
+          manifest={'component':'postgres','version':'15.19','source_commit':os.environ['GITHUB_SHA'],
+                    'image':os.environ['IMAGE'],'trivy':counts,'os_coverage':'review_required',
+                    'production_approval':False,'compatibility':'SCL/UID26/disposable-volume-only'}
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          print(json.dumps(manifest,indent=2))
+          if counts['CRITICAL']: raise SystemExit('CRITICAL findings: archive blocked')
+          if counts['HIGH']: print('WARNING: HIGH findings remain; production blocked pending review')
+          PY
+      - name: Compress Docker image, calculate SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v zstd >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y zstd; }
+          docker save "$IMAGE" | zstd -T2 -3 -o release/postgres/offline-evidence/postgres.tar.zst
+          (cd release/postgres/offline-evidence && sha256sum postgres.tar.zst > postgres.sha256)
+          ls -lh release/postgres/offline-evidence/
+      - name: Upload candidate TAR, checksum and vulnerability evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: awx-offline-postgres-15.19
+          path: release/postgres/offline-evidence/
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - name: Upload security evidence if build passes but later gate fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: awx-postgres-ci-failure-evidence
+          path: release/postgres/offline-evidence/
+          retention-days: 14
+          if-no-files-found: ignore
