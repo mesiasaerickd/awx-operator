@@ -25,7 +25,8 @@ jobs:
         run: |
           python3 release/closure/closure.py baseline --baseline release/closure/baseline.json > closure-status.json
           cat closure-status.json
-          echo 'Technical closure package passed; production NOT approved until Trivy reports, Kubernetes staging, acceptance and risk review succeed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Technical closure package passed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Production blocked: Trivy reports, Kubernetes staging and risk review required.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

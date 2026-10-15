@@ -233,3 +233,5 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Atomic delivery: release/closure scripts and workflow cover security Trivy evidence, Kubernetes and AWX integration, RBAC/jobs/backup-restore acceptance, immutable-image staging manifest and rollback preparation.
 - Fail-closed: critical and high findings remain visible; risk acceptance must name approver, ticket, expiry and per-CVE package; OS scan coverage requires explicit review. Known baseline AWX 0/0 limited OS, Operator 0/9 RPM, EE 0/4 SBOM. Green technical workflow does not imply release authorization.
 - No image publishing, kube apply, registry write, production update, or prd branch modification. Live staging testing is pending actual cluster and image availability.
+
+- Cierre CI: se dividió una línea YAML de 177 caracteres en el workflow de cierre, identificada por Molecule/yamllint en #38680086926. Se mantienen íntegros los controles; ejecutar de nuevo el workflow consolidado y Molecule para validar.
