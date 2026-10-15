@@ -1,0 +1,92 @@
+name: PostgreSQL RHEL9 vendor-only update probe (no image publication)
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/postgres-vendor-update-probe.yml'
+permissions:
+  contents: read
+jobs:
+  test-vendor-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RH_USER: ${{ secrets.REDHAT_REGISTRY_USER }}
+      RH_TOKEN: ${{ secrets.REDHAT_REGISTRY_TOKEN }}
+      IMAGE: localhost/pg15-rhel9-vendor-update:ci
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Require entitlement and create isolated temporary image
+        run: |
+          set -euo pipefail
+          test -n "$RH_USER" && test -n "$RH_TOKEN"
+          printf '%s' "$RH_TOKEN" | docker login registry.redhat.io -u "$RH_USER" --password-stdin
+          docker pull registry.redhat.io/rhel9/postgresql-15:latest
+          mkdir -p evidence
+          docker image inspect -f '{{index .RepoDigests 0}}' registry.redhat.io/rhel9/postgresql-15:latest | tee evidence/base-digest.txt
+          cat > Dockerfile.probe <<'EOF'
+          FROM registry.redhat.io/rhel9/postgresql-15:latest
+          USER 0
+          RUN microdnf update -y && microdnf clean all && test "$(postgres --version | awk '{print $3}')" = "15.19"
+          USER 26
+          EOF
+          docker build --pull --no-cache -f Dockerfile.probe -t "$IMAGE" .
+      - name: Validate vendor-updated image runtime
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
+            set -eu
+            test "$(id -u)" = "26"
+            test "$(postgres --version | awk "{print \$3}")" = "15.19"
+            test -x /usr/bin/run-postgresql
+            test -d /var/lib/pgsql/data
+          '
+          docker run --rm --user 0 --entrypoint /bin/sh "$IMAGE" \
+            -c 'rpm -qa | grep -Ei "^(expat|gnutls|libblkid|libfdisk|libmount|libsmartcols|libuuid|python3|util-linux|vim)" | sort' \
+            > evidence/updated-packages.txt
+      - name: Validate SQL and restart on disposable volume
+        run: |
+          set -euo pipefail
+          NAME="pg-vendor-probe-$GITHUB_RUN_ID"
+          VOL="pg-vendor-probe-$GITHUB_RUN_ID"
+          PWD_TEST="test-not-production-$GITHUB_RUN_ID"
+          docker volume create "$VOL"
+          trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$VOL" >/dev/null 2>&1 || true' EXIT
+          start() {
+            docker run -d --name "$NAME" -v "$VOL:/var/lib/pgsql/data" \
+              -e POSTGRESQL_USER=ci -e POSTGRESQL_PASSWORD="$PWD_TEST" \
+              -e POSTGRESQL_DATABASE=ci "$IMAGE"
+            for i in $(seq 1 50); do
+              if docker exec "$NAME" pg_isready -h 127.0.0.1 -U ci >/dev/null 2>&1; then return 0; fi
+              sleep 2
+            done
+            docker logs "$NAME"
+            return 1
+          }
+          start
+          docker exec -e PGPASSWORD="$PWD_TEST" "$NAME" psql -h 127.0.0.1 -U ci -d ci -v ON_ERROR_STOP=1 -c 'CREATE TABLE probe(v int); INSERT INTO probe VALUES(42);'
+          docker rm -f "$NAME"
+          start
+          test "$(docker exec -e PGPASSWORD="$PWD_TEST" "$NAME" psql -h 127.0.0.1 -U ci -d ci -Atqc 'SELECT v FROM probe')" = '42'
+      - name: Trivy native OS scan of vendor-only patch probe
+        run: |
+          set -euo pipefail
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/evidence:/evidence" aquasec/trivy:0.75.0 image \
+            --image-src docker --scanners vuln --severity CRITICAL,HIGH \
+            --format json --output /evidence/trivy.json "$IMAGE"
+      - name: Fail on open HIGH/CRITICAL or absent OS coverage
+        run: |
+          python3 release/postgres/security_gate.py \
+            --report evidence/trivy.json --os-type redhat --output evidence/qualification.json
+      - name: Upload diagnostic evidence (NEVER upload vendor image)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-vendor-update-diagnostic
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
