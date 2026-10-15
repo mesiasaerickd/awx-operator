@@ -235,3 +235,7 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - No image publishing, kube apply, registry write, production update, or prd branch modification. Live staging testing is pending actual cluster and image availability.
 
 - Cierre CI: se dividió una línea YAML de 177 caracteres en el workflow de cierre, identificada por Molecule/yamllint en #38680086926. Se mantienen íntegros los controles; ejecutar de nuevo el workflow consolidado y Molecule para validar.
+
+- Consolidated closure enhancement: full offline Kustomize render and AWX CR assertions
+  added to release-closure.yml; Operator's expensive CI now ignores closure-only and
+  changelog-only changes. All this remains in dev; offline validation is not live staging.

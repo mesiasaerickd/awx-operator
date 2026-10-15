@@ -33,3 +33,13 @@ This gate checks Operator and AWX rollouts; live image digest identities; AWX CR
 The render command creates awx-cr.json, kustomization.yaml, images.lock.json and ROLLBACK.md under its output folder. Collect security audit, staging acceptance log, immutable image attestations, verified database restore, maintenance window and human approvals. Only then review a PR from dev to prd. Production deployment is separate and requires explicit approval. Image publishing, applying manifests to a Kubernetes cluster and prod rollback have NOT occurred in this change.
 
 Required blockers right now: 13 HIGH, limited OS coverage, no published candidate image or staging connection, no signed risk review, and no live Kubernetes integration. A green Actions workflow only confirms the closure tools and pinned earlier CI successes.
+
+## Consolidated CI sanity validation
+The closure workflow performs all gate unit tests and renders the actual Operator
+Kustomize overlay and AWX CR using deliberately invalid placeholder image names.
+It does not apply manifests or publish images. Runtime staging acceptance is still
+required and only runs when an authorized tester supplies a real Kubernetes test
+context, registry image digests and AWX staging credentials.
+
+The expensive Operator build/Molecule workflow ignores changes confined to this
+closure package or engineering documentation, avoiding redundant CI cycles.

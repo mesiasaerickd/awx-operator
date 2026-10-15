@@ -3,6 +3,11 @@ on:
   workflow_dispatch:
   push:
     branches: [dev]
+    # Closure/docs-only changes run the dedicated fast validation workflow.
+    paths-ignore:
+      - 'release/closure/**'
+      - '.github/workflows/release-closure.yml'
+      - 'ENGINEERING_CHANGELOG.md'
 permissions:
   contents: read
 jobs:

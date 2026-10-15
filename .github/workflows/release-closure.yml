@@ -18,7 +18,42 @@ jobs:
         run: |
           python3 -m py_compile release/closure/closure.py
           python3 -m unittest discover -s release/closure/tests -v
-      - name: Check upstream immutable CI run provenance
+      - name: Render full staging Kubernetes manifests offline
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          src = pathlib.Path('release/closure/images.lock.template.json')
+          lock = json.loads(src.read_text())
+          for component in ('awx', 'operator', 'ee'):
+              lock[component] = {
+                  'repository': 'registry.invalid/closure-' + component,
+                  'tag': 'git-verified-test',
+                  'digest': 'sha256:' + 'a' * 64,
+              }
+          pathlib.Path('/tmp/awx-closure-test-lock.json').write_text(json.dumps(lock))
+          PY
+          python3 release/closure/closure.py render \
+            --lock /tmp/awx-closure-test-lock.json \
+            --output release/closure/generated
+          make kustomize
+          if command -v kustomize >/dev/null 2>&1; then
+            kustomize build release/closure/generated > closure-kustomize.yaml
+          else
+            ./bin/kustomize build release/closure/generated > closure-kustomize.yaml
+          fi
+          grep -q 'kind: CustomResourceDefinition' closure-kustomize.yaml
+          grep -q 'kind: Deployment' closure-kustomize.yaml
+          grep -q 'registry.invalid/closure-operator' closure-kustomize.yaml
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          cr=json.loads(Path('release/closure/generated/awx-cr.json').read_text())
+          assert cr['metadata']['namespace']=='awx-staging'
+          assert cr['spec']['image_version']=='git-verified-test'
+          assert cr['spec']['control_plane_ee_image'].endswith(':git-verified-test')
+          print('Static staging manifest and AWX CR tests passed')
+          PY
         run: |
           python3 release/closure/closure.py evidence --baseline release/closure/baseline.json
       - name: Print transparent production blocker status
@@ -35,5 +70,6 @@ jobs:
             release/closure/
             closure-status.json
             closure-ci-evidence.json
+            closure-kustomize.yaml
           retention-days: 30
           if-no-files-found: warn
