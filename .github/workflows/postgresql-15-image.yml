@@ -63,7 +63,7 @@ jobs:
           RESULT=$(docker exec -e PGPASSWORD="$PASS" "$NAME" psql -h 127.0.0.1 -U awxtest -d awxtest -Atqc 'SELECT value FROM ci_probe;')
           test "$RESULT" = "42"
           echo "PASS: PostgreSQL $SERVER_VER, SCL image contract, query, persistent disposable volume"
-      - name: Trivy complete image scan (no ignored findings)
+      - name: Trivy native scan and explicit Rocky 9 advisory approximation
         shell: bash
         run: |
           set -euo pipefail
@@ -71,7 +71,12 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD/release/postgres/offline-evidence:/reports" \
             aquasec/trivy:0.75.0 image --image-src docker --scanners vuln \
-            --severity CRITICAL,HIGH --format json --output /reports/trivy.json "$IMAGE"
+            --severity CRITICAL,HIGH --format json --output /reports/trivy-native.json "$IMAGE"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/release/postgres/offline-evidence:/reports" \
+            aquasec/trivy:0.75.0 image --image-src docker --scanners vuln \
+            --distro rocky/9 --severity CRITICAL,HIGH --format json \
+            --output /reports/trivy-rocky-approximation.json "$IMAGE"
       - name: Report findings and block any CRITICAL
         shell: bash
         run: |
@@ -80,17 +85,23 @@ jobs:
           import json, os
           from pathlib import Path
           out=Path('release/postgres/offline-evidence')
-          report=json.loads((out/'trivy.json').read_text())
+          native=json.loads((out/'trivy-native.json').read_text())
+          report=json.loads((out/'trivy-rocky-approximation.json').read_text())
           if not isinstance(report.get('Results'),list) or not report.get('SchemaVersion'):
-              raise SystemExit('INVALID Trivy report: do not publish image')
+              raise SystemExit('INVALID alternate distro scan: block archive')
+          if not report['Results']:
+              raise SystemExit('Empty Rocky 9 advisory scan: coverage unverified; block archive')
           counts={s:0 for s in ('CRITICAL','HIGH')}
           for target in report['Results']:
               for item in target.get('Vulnerabilities') or []:
                   severity=item.get('Severity')
                   if severity in counts: counts[severity]+=1
           manifest={'component':'postgres','version':'15.19','source_commit':os.environ['GITHUB_SHA'],
-                    'image':os.environ['IMAGE'],'trivy':counts,'os_coverage':'review_required',
-                    'production_approval':False,'compatibility':'SCL/UID26/disposable-volume-only'}
+                    'image':os.environ['IMAGE'],'trivy_rocky9_approximation':counts,
+                    'native_coverage':bool(native.get('Results')), 'os_coverage':'INCOMPLETE',
+                    'production_approval':False, 'vendor_support':'UNVERIFIED',
+                    'compatibility':'SCL/UID26/disposable-volume-only',
+                    'note':'Rocky advisories used for LAB comparison only; CentOS Stream scan unsupported'}
           (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
           print(json.dumps(manifest,indent=2))
           if counts['CRITICAL']: raise SystemExit('CRITICAL findings: archive blocked')
