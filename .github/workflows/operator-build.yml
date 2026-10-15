@@ -7,6 +7,8 @@ on:
     paths-ignore:
       - 'release/closure/**'
       - '.github/workflows/release-closure.yml'
+      - '.github/workflows/offline-image-bundle.yml'
+      - 'release/offline/**'
       - 'ENGINEERING_CHANGELOG.md'
 permissions:
   contents: read

@@ -1,0 +1,127 @@
+name: AWX offline staging image archives
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/offline-image-bundle.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {component: awx, repository: mesiasaerickd/awx, ref: d0f3cd1c7563de6fe28a86da056c981e2233b1bc, tag: d0f3cd1c7563, max_high: 0}
+          - {component: operator, repository: mesiasaerickd/awx-operator, ref: 3bb442b02ce916bd49827ee629496fd0652d83c5, tag: 3bb442b02ce9, max_high: 9}
+          - {component: ee, repository: mesiasaerickd/awx-ee, ref: b89f11424bf527e5344f0c37ba44178a467dc5f7, tag: b89f11424bf5, max_high: 4}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.ref }}
+          path: src
+          persist-credentials: false
+      - name: Verify source
+        run: |
+          test "$(git -C src rev-parse HEAD)" = '${{ matrix.ref }}'
+          df -h .
+      - name: Build and smoke-test
+        env:
+          IMAGE: localhost/${{ matrix.component }}:git-${{ matrix.tag }}
+          PART: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          case "$PART" in
+            awx)
+              python3 -m pip install --user ansible-core jinja2
+              cd src
+              export PATH="$HOME/.local/bin:$PATH"
+              make Dockerfile HEADLESS=1
+              docker build -f Dockerfile --build-arg VERSION=24.6.1.dev0 \
+                --build-arg SETUPTOOLS_SCM_PRETEND_VERSION=24.6.1.dev0 \
+                --build-arg HEADLESS=true -t "$IMAGE" .
+              docker run --rm --entrypoint /bin/bash "$IMAGE" \
+                -lc '/var/lib/awx/venv/awx/bin/python -m pip check'
+              ;;
+            operator)
+              docker build -f src/Dockerfile --build-arg DEFAULT_AWX_VERSION=24.6.1 \
+                --build-arg OPERATOR_VERSION=development -t "$IMAGE" src
+              docker run --rm --entrypoint /bin/sh "$IMAGE" \
+                -c 'test -x /usr/local/bin/ansible-operator && test -f "$HOME/watches.yaml"'
+              ;;
+            ee)
+              python3 -m pip install --user ansible-builder
+              cd src
+              export PATH="$HOME/.local/bin:$PATH"
+              docker build -f Dockerfile.receptor -t awx-ee-receptor-patched:offline .
+              ansible-builder build -f execution-environment.yml -t "$IMAGE" \
+                --container-runtime docker
+              docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
+                set -eu
+                /usr/bin/python3.12 -m pip check
+                test -x /usr/bin/receptor
+                export HOME=/tmp ANSIBLE_LOCAL_TEMP=/tmp/ansible-local
+                mkdir -p "$ANSIBLE_LOCAL_TEMP"
+                ansible --version
+                ansible-runner --version
+                az --version
+              '
+              ;;
+          esac
+      - name: Scan complete image with Trivy, no exclusions
+        env:
+          IMAGE: localhost/${{ matrix.component }}:git-${{ matrix.tag }}
+        run: |
+          mkdir -p offline-evidence
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD/offline-evidence:/reports" aquasec/trivy:0.75.0 image \
+            --image-src docker --scanners vuln --severity CRITICAL,HIGH \
+            --format json --output /reports/trivy.json "$IMAGE"
+      - name: Block security regressions before releasing archive
+        env:
+          COMPONENT: ${{ matrix.component }}
+          MAX_HIGH: ${{ matrix.max_high }}
+          REF: ${{ matrix.ref }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report=json.loads(Path('offline-evidence/trivy.json').read_text())
+          if not isinstance(report.get('Results'),list) or 'SchemaVersion' not in report:
+              raise SystemExit('Invalid Trivy report')
+          c={'CRITICAL':0,'HIGH':0}
+          for r in report['Results']:
+              for v in r.get('Vulnerabilities') or []:
+                  if v.get('Severity') in c: c[v['Severity']]+=1
+          obj={'component':os.environ['COMPONENT'],'source':os.environ['REF'],
+               'trivy':c,'production_approval':False,'os_coverage':'review_required'}
+          Path('offline-evidence/manifest.json').write_text(json.dumps(obj,indent=2)+'\n')
+          print(json.dumps(obj,indent=2))
+          if c['CRITICAL'] or c['HIGH']>int(os.environ['MAX_HIGH']):
+              raise SystemExit('Security regression: no archive exported')
+          PY
+      - name: Create compressed Docker TAR and SHA256 checksum
+        env:
+          IMAGE: localhost/${{ matrix.component }}:git-${{ matrix.tag }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          command -v zstd || { sudo apt-get update -qq; sudo apt-get install -y zstd; }
+          docker builder prune -af
+          df -h .
+          docker save "$IMAGE" | zstd -T2 -3 -o "offline-evidence/$COMPONENT.tar.zst"
+          cd offline-evidence
+          sha256sum "$COMPONENT.tar.zst" > "$COMPONENT.sha256"
+          ls -lh "$COMPONENT.tar.zst"
+      - name: Upload three independent downloadable archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: awx-offline-${{ matrix.component }}-${{ matrix.tag }}
+          path: offline-evidence/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14

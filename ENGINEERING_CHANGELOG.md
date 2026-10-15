@@ -239,3 +239,7 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Consolidated closure enhancement: full offline Kustomize render and AWX CR assertions
   added to release-closure.yml; Operator's expensive CI now ignores closure-only and
   changelog-only changes. All this remains in dev; offline validation is not live staging.
+
+## 2026-10-14 — Offline Linux image TAR staging bundle
+- One parallel GitHub Action builds the three pinned AWX, Operator and EE sources and runs image smoke tests + full Trivy HIGH/CRITICAL scans (no ignores). Each image is exported as a docker-save TAR.ZST with SHA256 and attached as a downloadable 14-day artifact. Trivy limits only enforce no regressions, not acceptance of 13 HIGH.
+- No GHCR push, publication, prd update or Kubernetes deployment; images for isolated Linux/Kind staging only. Offline installation steps in release/offline/README.md. Operator heavy CI ignores changes only to this new bundle.
