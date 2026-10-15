@@ -35,13 +35,13 @@ class Gates(unittest.TestCase):
             self.assertEqual(closure.audit(paths)["status"],"BLOCKED")
     def test_no_floating_images(self):
         lock={"namespace":"awx-staging","awx_name":"awx-closure"}
-        for x in closure.PARTS:
+        for x in closure.IMAGE_PARTS:
             lock[x]={"repository":"registry.test/"+x,"tag":"latest",
                      "digest":"sha256:"+"a"*64}
         with self.assertRaises(ValueError): closure.check_lock(lock)
     def test_render_valid_lock(self):
         lock={"namespace":"awx-staging","awx_name":"awx-closure"}
-        for x in closure.PARTS:
+        for x in closure.IMAGE_PARTS:
             lock[x]={"repository":"registry.test/"+x,"tag":"git-abcdef",
                      "digest":"sha256:"+"a"*64}
         with tempfile.TemporaryDirectory() as tmp:
@@ -50,6 +50,8 @@ class Gates(unittest.TestCase):
             closure.render(inp, pathlib.Path(tmp)/"generated")
             result=json.loads((pathlib.Path(tmp)/"generated"/"awx-cr.json").read_text())
             self.assertEqual(result["spec"]["image_version"],"git-abcdef")
+            self.assertEqual(result["spec"]["postgres_image"],"registry.test/postgres")
+            self.assertEqual(result["spec"]["postgres_image_version"],"git-abcdef")
             self.assertTrue((pathlib.Path(tmp)/"generated"/"ROLLBACK.md").exists())
 
 if __name__=="__main__":

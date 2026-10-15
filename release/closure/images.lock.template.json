@@ -15,5 +15,10 @@
     "repository": "REGISTRY/awx-ee",
     "tag": "REPLACE_IMMUTABLE_TAG",
     "digest": "REPLACE_SHA256"
+  },
+  "postgres": {
+    "repository": "REGISTRY/awx-postgres",
+    "tag": "REPLACE_IMMUTABLE_TAG",
+    "digest": "REPLACE_SHA256"
   }
 }

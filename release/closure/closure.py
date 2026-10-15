@@ -13,6 +13,8 @@ import urllib.error
 import urllib.request
 
 PARTS = ("awx", "operator", "ee")
+# All images required for Kubernetes release and runtime digest verification.
+IMAGE_PARTS = PARTS + ("postgres",)
 
 def load(path):
     return json.loads(pathlib.Path(path).read_text())
@@ -61,7 +63,7 @@ def check_lock(lock):
         raise ValueError("Only awx-staging is supported")
     if not re.fullmatch("[a-z][a-z0-9-]{0,35}", lock.get("awx_name", "")):
         raise ValueError("Invalid AWX name")
-    for part in PARTS:
+    for part in IMAGE_PARTS:
         item = lock.get(part, {})
         if not item.get("repository") or item.get("tag") in ("", "latest", "dev", "devel", None):
             raise ValueError(part + ": immutable image tag required")
@@ -83,7 +85,9 @@ def render(lock_path, output):
                 "spec": {"service_type": "ClusterIP", "image": lock["awx"]["repository"],
                          "image_version": lock["awx"]["tag"],
                          "control_plane_ee_image": image("ee"),
-                         "ee_images": [{"name": "Closure EE", "image": image("ee")}]}}
+                         "ee_images": [{"name": "Closure EE", "image": image("ee")}],
+                         "postgres_image": lock["postgres"]["repository"],
+                         "postgres_image_version": lock["postgres"]["tag"]}}
     write(out / "awx-cr.json", resource)
     (out / "kustomization.yaml").write_text(
         "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n"
@@ -125,7 +129,7 @@ def staging(lock_path):
         cmd(base + ["rollout", "status", "deployment/" + deploy, "--timeout=600s"])
     # Verify image identifiers in live runtime, not only intended manifest tags.
     pod_data = json.loads(cmd(base + ["get", "pods", "-o", "json"]))
-    expected = {k: lock[k]["digest"] for k in PARTS}
+    expected = {k: lock[k]["digest"] for k in IMAGE_PARTS}
     observed = set()
     for pod in pod_data.get("items", []):
         for item in pod.get("status", {}).get("containerStatuses", []):
@@ -133,8 +137,8 @@ def staging(lock_path):
             for part, digest in expected.items():
                 if digest in imgid:
                     observed.add(part)
-    if observed != set(PARTS):
-        raise ValueError("Kubernetes has not verified all three locked image digests: " +
+    if observed != set(IMAGE_PARTS):
+        raise ValueError("Kubernetes has not verified all four locked image digests: " +
                          str(sorted(observed)))
     deny = cmd(base + ["auth", "can-i", "create", "secrets", "--as",
                        "system:serviceaccount:awx-staging:default"])
@@ -238,7 +242,7 @@ def main():
             base = load(args.baseline)
             print(json.dumps({"status": "PRODUCTION_BLOCKED",
                               "trivy": {c: base[c]["last_trivy"] for c in PARTS},
-                              "reason": "Open high findings, OS coverage and Kubernetes acceptance"},
+                              "reason": "Open HIGH, PostgreSQL qualification, OS coverage and Kubernetes acceptance"},
                              indent=2))
         return 0
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError,

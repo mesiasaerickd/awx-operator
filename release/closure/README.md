@@ -43,3 +43,9 @@ context, registry image digests and AWX staging credentials.
 
 The expensive Operator build/Molecule workflow ignores changes confined to this
 closure package or engineering documentation, avoiding redundant CI cycles.
+
+## PostgreSQL as a mandatory fourth release image (October 2026)
+
+The image lock now requires a PostgreSQL entry with an immutable tag and a 64-character sha256 digest, in addition to AWX, Operator and EE. The generated AWX custom resource sets `postgres_image` and `postgres_image_version`. Runtime staging acceptance checks all four image digests.
+
+This DOES NOT certify the Rocky/CentOS mixed-vendor PostgreSQL laboratory image (70 HIGH approximation, missing native OS advisory coverage). The separate `postgres-vendor-qualification.yml` job must first validate an entitled RHEL9 vendor image and version 15.19 without CRITICAL or HIGH detections, including OS scan coverage. Backups, isolated Kubernetes integration and human approval remain mandatory.

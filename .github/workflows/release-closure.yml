@@ -25,7 +25,7 @@ jobs:
           import pathlib
           src = pathlib.Path('release/closure/images.lock.template.json')
           lock = json.loads(src.read_text())
-          for component in ('awx', 'operator', 'ee'):
+          for component in ('awx', 'operator', 'ee', 'postgres'):
               lock[component] = {
                   'repository': 'registry.invalid/closure-' + component,
                   'tag': 'git-verified-test',
@@ -52,6 +52,8 @@ jobs:
           assert cr['metadata']['namespace']=='awx-staging'
           assert cr['spec']['image_version']=='git-verified-test'
           assert cr['spec']['control_plane_ee_image'].endswith(':git-verified-test')
+          assert cr['spec']['postgres_image'] == 'registry.invalid/closure-postgres'
+          assert cr['spec']['postgres_image_version'] == 'git-verified-test'
           print('Static staging manifest and AWX CR tests passed')
           PY
       - name: Check upstream immutable CI run provenance
@@ -62,7 +64,7 @@ jobs:
           python3 release/closure/closure.py baseline --baseline release/closure/baseline.json > closure-status.json
           cat closure-status.json
           echo 'Technical closure package passed.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Production blocked: Trivy reports, Kubernetes staging and risk review required.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Production blocked: PostgreSQL vendor qualification, Trivy reports, Kubernetes staging and risk review required.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
