@@ -1,0 +1,32 @@
+{
+  "awx": {
+    "repository": "mesiasaerickd/awx",
+    "run_id": 38508538749,
+    "sha": "d0f3cd1c7563de6fe28a86da056c981e2233b1bc",
+    "last_trivy": {
+      "CRITICAL": 0,
+      "HIGH": 0
+    },
+    "os_coverage_complete": false
+  },
+  "operator": {
+    "repository": "mesiasaerickd/awx-operator",
+    "run_id": 38648937401,
+    "sha": "9bdf89409d82f8c2dd4ada8616a602cc2f1b1af2",
+    "last_trivy": {
+      "CRITICAL": 0,
+      "HIGH": 9
+    },
+    "os_coverage_complete": true
+  },
+  "ee": {
+    "repository": "mesiasaerickd/awx-ee",
+    "run_id": 38677473713,
+    "sha": "b89f11424bf527e5344f0c37ba44178a467dc5f7",
+    "last_trivy": {
+      "CRITICAL": 0,
+      "HIGH": 4
+    },
+    "os_coverage_complete": false
+  }
+}

@@ -1,0 +1,38 @@
+name: AWX consolidated four-stage release closure (dev)
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - 'release/closure/**'
+      - '.github/workflows/release-closure.yml'
+permissions:
+  contents: read
+jobs:
+  closure-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate consolidated security, staging and rollback code
+        run: |
+          python3 -m py_compile release/closure/closure.py
+          python3 -m unittest discover -s release/closure/tests -v
+      - name: Check upstream immutable CI run provenance
+        run: |
+          python3 release/closure/closure.py evidence --baseline release/closure/baseline.json
+      - name: Print transparent production blocker status
+        run: |
+          python3 release/closure/closure.py baseline --baseline release/closure/baseline.json > closure-status.json
+          cat closure-status.json
+          echo 'Technical closure package passed; production NOT approved until Trivy reports, Kubernetes staging, acceptance and risk review succeed.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: awx-closure-evidence
+          path: |
+            release/closure/
+            closure-status.json
+            closure-ci-evidence.json
+          retention-days: 30
+          if-no-files-found: warn

@@ -228,3 +228,8 @@ Decisión: mantener `prd` sin cambios; no publicar a GHCR hasta identificar CVE 
 - Conclusión: `python3.12-pip-wheel` **no es eliminable** sin romper dependencias del sistema. No se fuerza la desinstalación ni se suprime su CVE.
 - Se revirtió exclusivamente el intento del Dockerfile y el control provisional en el workflow, restableciendo el inventario RPM original; una nueva ejecución del pipeline unificado debe validar la reversión. Continúa el último baseline observado 0 CRITICAL y 9 HIGH hasta nuevo Trivy.
 - Todo limitado a dev; prd, GHCR y Kubernetes sin cambios.
+
+## 2026-10-14 — Single coordinated four-gate AWX closure, dev only
+- Atomic delivery: release/closure scripts and workflow cover security Trivy evidence, Kubernetes and AWX integration, RBAC/jobs/backup-restore acceptance, immutable-image staging manifest and rollback preparation.
+- Fail-closed: critical and high findings remain visible; risk acceptance must name approver, ticket, expiry and per-CVE package; OS scan coverage requires explicit review. Known baseline AWX 0/0 limited OS, Operator 0/9 RPM, EE 0/4 SBOM. Green technical workflow does not imply release authorization.
+- No image publishing, kube apply, registry write, production update, or prd branch modification. Live staging testing is pending actual cluster and image availability.

@@ -1,0 +1,19 @@
+{
+  "namespace": "awx-staging",
+  "awx_name": "awx-closure",
+  "operator": {
+    "repository": "REGISTRY/awx-operator",
+    "tag": "REPLACE_IMMUTABLE_TAG",
+    "digest": "REPLACE_SHA256"
+  },
+  "awx": {
+    "repository": "REGISTRY/awx",
+    "tag": "REPLACE_IMMUTABLE_TAG",
+    "digest": "REPLACE_SHA256"
+  },
+  "ee": {
+    "repository": "REGISTRY/awx-ee",
+    "tag": "REPLACE_IMMUTABLE_TAG",
+    "digest": "REPLACE_SHA256"
+  }
+}
