@@ -1,0 +1,35 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx-phoenix
+  namespace: awx
+  labels:
+    app.kubernetes.io/name: awx-phoenix
+    app.kubernetes.io/version: 1.0.0-rc1
+spec:
+  image: localhost/alma-awx-headless
+  image_version: candidate
+  image_pull_policy: Never
+  postgres_image: localhost/alma-postgres15
+  postgres_image_version: ci
+  postgres_storage_class: local-path
+  postgres_storage_requirements:
+    requests:
+      storage: 8Gi
+  postgres_data_volume_init: false
+  redis_image: docker.io/library/redis
+  redis_image_version: '7'
+  control_plane_ee_image: localhost/alma-awx-ee-core:receptor-fixed
+  init_container_image: localhost/alma-awx-ee-core
+  init_container_image_version: receptor-fixed
+  init_projects_container_image: quay.io/centos/centos:stream9
+  ee_images:
+  - name: AWX Phoenix EE Core
+    image: localhost/alma-awx-ee-core:receptor-fixed
+  - name: AWX Phoenix EE Extended
+    image: localhost/alma-ee-extended:candidate
+  service_type: ClusterIP
+  ingress_type: none
+  web_replicas: 1
+  task_replicas: 1
+  projects_persistence: false

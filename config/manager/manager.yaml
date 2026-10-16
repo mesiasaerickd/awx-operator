@@ -51,6 +51,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: ANSIBLE_ROLES_PATH
+          value: "/opt/awx-operator/roles:/opt/awx-operator/playbooks/roles:/usr/share/ansible/roles"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
